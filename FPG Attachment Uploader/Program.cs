@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
-using Concur.Authentication;
+using FPG_Attachment_Uploader.Properties;
 
 namespace FPG_Attachment_Uploader
 {
@@ -11,12 +13,19 @@ namespace FPG_Attachment_Uploader
 	{
 		static void Main(string[] args)
 		{
-			var authService = new AuthenticationService();
-			var oauthDetail = authService.GetOAuthTokenAsync(loginId, password, clientId).Result;
+			var userName = Settings.Default.UserName;
+			var password = Settings.Default.Password;
+			var clientId = Settings.Default.ClientId;
 
-			serviceV3 = new Concur.Connect.V3.ConnectService(oauthDetail.AccessToken, oauthDetail.InstanceUrl);
-			serviceV1 = new Concur.Connect.V1.ConnectService(oauthDetail.AccessToken, oauthDetail.InstanceUrl);
-			return oauthDetail;
+			try
+			{
+				var oathToken = ConcurClient.Login(userName, password, clientId);
+			}
+			catch (Exception e)
+			{
+				Console.WriteLine(e);
+				throw;
+			}
 		}
 	}
 }
