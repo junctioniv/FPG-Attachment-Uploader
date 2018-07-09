@@ -111,10 +111,36 @@ namespace FPG_Attachment_Uploader
 			return image;
 		}
 
+		public static void ReceiptImage(string id)
+		{
+			using (var client = new HttpClient())
+			{
+				var request = new HttpRequestMessage
+				{
+					RequestUri = new Uri(AuthToken.Geolocation + $"/api/image/v1.0/receipt/{id}"),
+					Method = HttpMethod.Get,
+				};
+
+				//Add Athentication header in correspondence with https://developer.concur.com/api-reference/authentication/getting-started.html
+				request.Headers.Add("Authorization", $"{AuthToken.TokenType} {AuthToken.AccessToken}");
+				request.Headers.Add("Accept", "application/xml");
+
+				var response = client.SendAsync(request).Result;
+
+				if (!response.IsSuccessStatusCode)
+				{
+					//TODO: Fix this case
+					throw new Exception("Could Not Login");
+				}
+
+				var result = response.Content.ReadAsStringAsync().Result;
+			}
+		}
+
 		public static Dictionary<string, List<ReceiptImage>> GetReportIds()
 		{
-			var list = new Dictionary<string, List<ReceiptImage>>();
-			var json = Call($"/api/v3.0/expense/reports?user=all&userDefinedDateAfter={DateTime.Today.AddDays(-60):yyyy-MM-dd}&limit=1");
+			var map = new Dictionary<string, List<ReceiptImage>>();
+			var json = Call($"/api/v3.0/expense/reports?user=all&userDefinedDateAfter={DateTime.Today.AddDays(-60):yyyy-MM-dd}");
 			var items = JsonConvert.DeserializeObject<JObject>(json)["Items"];
 
 			var total = items.Children().Count();
@@ -123,28 +149,39 @@ namespace FPG_Attachment_Uploader
 			{
 				Console.WriteLine($"{DateTime.Now:G}	Processing {count++}/{total} - {obj["Name"]}");
 				var id = (string) obj["ID"];
-				json = Call($"/api/expense/expensereport/v2.0/report/{id}");
+				var receipts = GetReportReceiptImagesById(id);
 
-				var expenseEntriesList = JsonConvert.DeserializeObject<JObject>(json)["ExpenseEntriesList"];
-				foreach (var entry in expenseEntriesList)
+				if (map.ContainsKey(id))
 				{
-					var entryImageId = entry["EntryImageID"]?.ToString() ?? "";
-					var entryId = entry["ReportEntryID"]?.ToString() ?? "";
-
-					if (string.IsNullOrEmpty(entryImageId)) continue;
-
-					var image = GetReciptImageByEntryId(entryId);
-
-					if (list.ContainsKey(id))
-					{
-						list[id].Add(image);
-					}
-					else
-					{
-						list.Add(id, new List<ReceiptImage>{image});
-					}
+					map[id].AddRange(receipts);
+				}
+				else
+				{
+					map.Add(id, receipts);
 				}
 			}
+
+			return map;
+		}
+
+		public static List<ReceiptImage> GetReportReceiptImagesById(string id)
+		{
+			var list = new List<ReceiptImage>();
+			var json = Call($"/api/expense/expensereport/v2.0/report/{id}");
+
+			var expenseEntriesList = JsonConvert.DeserializeObject<JObject>(json)["ExpenseEntriesList"];
+			foreach (var entry in expenseEntriesList)
+			{
+				var entryImageId = entry["EntryImageID"]?.ToString() ?? "";
+				var entryId = entry["ReportEntryID"]?.ToString() ?? "";
+
+				if (string.IsNullOrEmpty(entryImageId)) continue;
+
+				var image = GetReciptImageByEntryId(entryId);
+				list.Add(image);
+				
+			}
+
 			return list;
 		}
 
