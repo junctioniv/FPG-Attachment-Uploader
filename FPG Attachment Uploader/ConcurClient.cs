@@ -94,8 +94,7 @@ namespace FPG_Attachment_Uploader
 
 				if (!response.IsSuccessStatusCode)
 				{
-					//TODO: Fix this case
-					throw new Exception("Could Not Login");
+					throw new Exception($"Call Failed - Response Code:{response.StatusCode}");
 				}
 
 				var json = response.Content.ReadAsStringAsync().Result;
@@ -109,32 +108,6 @@ namespace FPG_Attachment_Uploader
 			var image = JsonConvert.DeserializeObject<ReceiptImage>(json);
 
 			return image;
-		}
-
-		public static void ReceiptImage(string id)
-		{
-			using (var client = new HttpClient())
-			{
-				var request = new HttpRequestMessage
-				{
-					RequestUri = new Uri(AuthToken.Geolocation + $"/api/image/v1.0/receipt/{id}"),
-					Method = HttpMethod.Get,
-				};
-
-				//Add Athentication header in correspondence with https://developer.concur.com/api-reference/authentication/getting-started.html
-				request.Headers.Add("Authorization", $"{AuthToken.TokenType} {AuthToken.AccessToken}");
-				request.Headers.Add("Accept", "application/xml");
-
-				var response = client.SendAsync(request).Result;
-
-				if (!response.IsSuccessStatusCode)
-				{
-					//TODO: Fix this case
-					throw new Exception("Could Not Login");
-				}
-
-				var result = response.Content.ReadAsStringAsync().Result;
-			}
 		}
 
 		public static Dictionary<string, List<ReceiptImage>> GetReportIds()
