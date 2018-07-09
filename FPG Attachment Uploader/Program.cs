@@ -27,58 +27,62 @@ namespace FPG_Attachment_Uploader
 				
 				foreach (var report in list)
 				{
-					using (var outputStream = new FileStream($"C:/Users/James/Desktop/{report.Key}.pdf", FileMode.Create))
-					{
-						using (var doc = new Document())
-						{
-							using (var copy = new PdfSmartCopy(doc, outputStream))
-							{
-								doc.Open();
-								foreach (var receipt in report.Value)
-								{
-									try
-									{
-										ConcurClient.DownloadImage(receipt);
-										switch (receipt.ContentType)
-										{
-											case "pdf":
-												//pdfsToMerge.Add(receipt.Data);
-												copy.AddDocument(new PdfReader(receipt.Data));
-												break;
-											case "image":
-											default:
-												using (var output = new MemoryStream())
-												{
-													using (var tempDoc = new Document())
-													{
-														PdfWriter.GetInstance(tempDoc, output);
-														tempDoc.Open();
-
-														var image = Image.GetInstance(receipt.Data);
-														image.ScaleToFit(tempDoc.PageSize);
-														tempDoc.Add(image);
-														tempDoc.NewPage();
-													}
-													var bytes = output.ToArray();
-													copy.AddDocument(new PdfReader(bytes));
-												}
-												break;
-										}
-									}
-									catch (Exception e)
-									{
-										Console.WriteLine(e);
-									}
-								}
-							}
-						}
-						
-					}
+					GenerateReportPdf(report, "C:/Users/James/Desktop/pdfs/");
 				}
 			}
 			catch (Exception e)
 			{
 				Console.WriteLine(e);
+			}
+		}
+
+		private static void GenerateReportPdf(KeyValuePair<string, List<ReceiptImage>> report,string outputDirectory)
+		{
+			using (var outputStream = new FileStream($"{outputDirectory}/{report.Key}.pdf", FileMode.Create))
+			{
+				using (var doc = new Document())
+				{
+					using (var merge = new PdfSmartCopy(doc, outputStream))
+					{
+						doc.Open();
+						foreach (var receipt in report.Value)
+						{
+							try
+							{
+								ConcurClient.DownloadImage(receipt);
+								switch (receipt.ContentType)
+								{
+									case "pdf":
+										merge.AddDocument(new PdfReader(receipt.Data));
+										break;
+									case "image":
+									default:
+										using (var output = new MemoryStream())
+										{
+											using (var document = new Document())
+											{
+												PdfWriter.GetInstance(document, output);
+												document.Open();
+
+												var image = Image.GetInstance(receipt.Data);
+												image.ScaleToFit(document.PageSize);
+												document.Add(image);
+												document.NewPage();
+											}
+											var bytes = output.ToArray();
+											merge.AddDocument(new PdfReader(bytes));
+										}
+										break;
+								}
+							}
+							catch (Exception e)
+							{
+								Console.WriteLine(e);
+							}
+						}
+					}
+				}
+
 			}
 		}
 	}
