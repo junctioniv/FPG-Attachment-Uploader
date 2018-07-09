@@ -14,5 +14,8 @@
     <Setting Name="ClientSecret" Type="System.String" Scope="User">
       <Value Profile="(Default)">dbe03953-41ef-4f61-ade4-a679a86bbc7f</Value>
     </Setting>
+    <Setting Name="ErrorEmailAddress" Type="System.String" Scope="User">
+      <Value Profile="(Default)">james@strombeck.com</Value>
+    </Setting>
   </Settings>
 </SettingsFile>

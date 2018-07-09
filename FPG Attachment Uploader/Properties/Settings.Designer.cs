@@ -70,5 +70,17 @@ namespace FPG_Attachment_Uploader.Properties {
                 this["ClientSecret"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("james@strombeck.com")]
+        public string ErrorEmailAddress {
+            get {
+                return ((string)(this["ErrorEmailAddress"]));
+            }
+            set {
+                this["ErrorEmailAddress"] = value;
+            }
+        }
     }
 }

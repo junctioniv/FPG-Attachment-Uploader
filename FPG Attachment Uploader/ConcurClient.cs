@@ -121,7 +121,7 @@ namespace FPG_Attachment_Uploader
 			foreach (var obj in items)
 			{
 				Console.WriteLine($"{DateTime.Now:G}	Processing {count++}/{total} - {obj["Name"]}");
-				var id = (string) obj["ID"];
+				var id = /*(string) obj["ID"]*/ "A4757C0D03E743DCAF92";
 				var receipts = GetReportReceiptImagesById(id);
 
 				if (map.ContainsKey(id))

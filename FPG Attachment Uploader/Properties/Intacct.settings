@@ -1,0 +1,27 @@
+﻿<?xml version='1.0' encoding='utf-8'?>
+<SettingsFile xmlns="http://schemas.microsoft.com/VisualStudio/2004/01/settings" CurrentProfile="(Default)" GeneratedClassNamespace="FPG_Attachment_Uploader.Properties" GeneratedClassName="Intacct">
+  <Profiles />
+  <Settings>
+    <Setting Name="SenderId" Type="System.String" Scope="User">
+      <Value Profile="(Default)">FPG</Value>
+    </Setting>
+    <Setting Name="SenderPassword" Type="System.String" Scope="User">
+      <Value Profile="(Default)">Web684@$link</Value>
+    </Setting>
+    <Setting Name="CompanyId" Type="System.String" Scope="User">
+      <Value Profile="(Default)">FPG</Value>
+    </Setting>
+    <Setting Name="UserId" Type="System.String" Scope="User">
+      <Value Profile="(Default)">xml_gateway</Value>
+    </Setting>
+    <Setting Name="UserPassword" Type="System.String" Scope="User">
+      <Value Profile="(Default)">Synoverge@123</Value>
+    </Setting>
+    <Setting Name="LocationId" Type="System.String" Scope="User">
+      <Value Profile="(Default)">200</Value>
+    </Setting>
+    <Setting Name="LogLevel" Type="System.String" Scope="User">
+      <Value Profile="(Default)">Error</Value>
+    </Setting>
+  </Settings>
+</SettingsFile>
