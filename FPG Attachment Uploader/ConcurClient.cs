@@ -115,7 +115,6 @@ namespace FPG_Attachment_Uploader
 		{
 			var list = new Dictionary<string, List<ReceiptImage>>();
 			var json = Call($"/api/v3.0/expense/reports?user=all&userDefinedDateAfter={DateTime.Today.AddDays(-60):yyyy-MM-dd}&limit=1");
-			//var json = Call("/api/expense/expensereport/v2.0/report/E0D810452BCB40E48764");
 			var items = JsonConvert.DeserializeObject<JObject>(json)["Items"];
 
 			var total = items.Children().Count();
