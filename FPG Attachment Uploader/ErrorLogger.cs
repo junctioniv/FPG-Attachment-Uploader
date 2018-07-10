@@ -27,7 +27,7 @@ namespace FPG_Attachment_Uploader
 			Console.WriteLine(message);
 		}
 
-		public static void SendErrorEmail(int numInserted, int numFailed)
+		public static void SendErrorEmail(int numInserted, int numFailed, List<Report> reports)
 		{
 			using (var client = new SmtpClient
 			{
@@ -51,6 +51,12 @@ namespace FPG_Attachment_Uploader
 					{
 						body += $"{key} - {error} \n";
 					}
+				}
+
+				body += "\n\n";
+				foreach (var report in reports.Where(q=>q.HasError))	
+				{
+					body += $"Faild to create .pdf Invoice for {report.Id} \n";
 				}
 
 				using (var message = new MailMessage
