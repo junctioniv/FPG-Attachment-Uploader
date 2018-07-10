@@ -121,7 +121,7 @@ namespace FPG_Attachment_Uploader
 			foreach (var obj in items)
 			{
 				Console.WriteLine($"{DateTime.Now:G}	Processing {count++}/{total} - {obj["Name"]}");
-				var id = /*(string) obj["ID"]*/ "A4757C0D03E743DCAF92";
+				var id = (string) obj["ID"];
 				var receipts = GetReportReceiptImagesById(id);
 
 				if (map.ContainsKey(id))
@@ -172,6 +172,28 @@ namespace FPG_Attachment_Uploader
 
 			return image;
 		}
+	}
+
+	public class Report
+	{
+		public string Id;
+		public string ReportId;
+		public List<ReportEntry> Entries = new List<ReportEntry>();
+		public bool HasError = false;
+	}
+
+	public class ReportEntry
+	{
+		public string Id;
+		public ReportEntryType Type;
+		public ReceiptImage Image;
+		public string Path;
+	}
+
+	public enum ReportEntryType
+	{
+		Concur = 0,
+		Egencia = 1
 	}
 	
 	public class ReceiptImage
