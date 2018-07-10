@@ -10,6 +10,8 @@ using FPG_Attachment_Uploader.Properties;
 using iTextSharp.text;
 using iTextSharp.text.pdf;
 using Microsoft.WindowsAPICodePack.Dialogs;
+using NLog;
+using NLog.Config;
 using NPOI.HSSF.UserModel;
 using NPOI.SS.UserModel;
 using NPOI.XSSF.UserModel;
@@ -139,6 +141,7 @@ namespace FPG_Attachment_Uploader
 
 				var sheet = workbook.GetSheet(workbook.GetSheetName(workbook.ActiveSheetIndex));
 				var oathToken = ConcurClient.Login(userName, password, clientId);
+				Console.WriteLine("Processing Import Excel File.");
 				for (var i = 1; i <= sheet.LastRowNum; i++)
 				{
 					var row = sheet.GetRow(i);
@@ -172,10 +175,11 @@ namespace FPG_Attachment_Uploader
 
 				foreach (var report in reports)
 				{
+					Console.WriteLine($"Generating PDF for Invoice#{report.Id}");
 					GenerateReportPdf(report, outputPath);
 				}
 				
-				var files = Directory.GetFiles(outputPath, "* *.pdf", SearchOption.TopDirectoryOnly);
+				var files = Directory.GetFiles(outputPath, "*-*.pdf", SearchOption.TopDirectoryOnly);
 				Console.WriteLine($"{files.Length} Files to Process.");
 
 				foreach (var file in files)

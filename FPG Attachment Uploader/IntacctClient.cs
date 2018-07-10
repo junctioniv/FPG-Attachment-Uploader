@@ -22,25 +22,39 @@ namespace FPG_Attachment_Uploader
 {
 	class IntacctClient
 	{
-		private FileTarget _target = new FileTarget
+
+		public static FileTarget Target = new FileTarget
 		{
-			FileName = "${basedir}/logs/intacct.log"
+			FileName = "$C:/Intacct/logs/intacct.log"
 		};
 
-		public static OnlineClient Client = new OnlineClient(_clientConfig);
-		private static Logger logger = LogManager.GetLogger("intacct-sdk-net");
+		public static OnlineClient Client = new OnlineClient(ClientConfig);
 
-		private static ClientConfig _clientConfig = new ClientConfig // Create the config and set a session ID
+		private static ClientConfig _clientConfig = null;
+		private static ClientConfig ClientConfig  // Create the config and set a session ID
 		{
-			SenderId = Properties.Intacct.Default.SenderId,
-			SenderPassword = Properties.Intacct.Default.SenderPassword,
-			CompanyId = Properties.Intacct.Default.CompanyId,
-			UserId = Properties.Intacct.Default.UserId,
-			UserPassword = Properties.Intacct.Default.UserPassword,
-			LocationId = Properties.Intacct.Default.LocationId,
-			Logger = logger,
-			LogLevel = LogLevel.FromString(Properties.Intacct.Default.LogLevel)
-		};
+			get
+			{
+				if (_clientConfig == null)
+				{
+					SimpleConfigurator.ConfigureForTargetLogging(Target, LogLevel.Debug);
+					var logger = LogManager.GetLogger("intacct-sdk-net");
+					_clientConfig = new ClientConfig
+					{
+						SenderId = Properties.Intacct.Default.SenderId,
+						SenderPassword = Properties.Intacct.Default.SenderPassword,
+						CompanyId = Properties.Intacct.Default.CompanyId,
+						UserId = Properties.Intacct.Default.UserId,
+						UserPassword = Properties.Intacct.Default.UserPassword,
+						LocationId = Properties.Intacct.Default.LocationId,
+						Logger = logger,
+						LogLevel = LogLevel.FromString(Properties.Intacct.Default.LogLevel)
+					};
+				}
+
+				return _clientConfig;
+			}	
+		}
 
 		public static bool InvoiceExists(string invoiceNum, out System.Xml.Linq.XElement invoice)
 		{
@@ -59,7 +73,7 @@ namespace FPG_Attachment_Uploader
 				task.Wait();
 				var response = task.Result;
 
-				if (response.Results.Count == 0)
+				if (response.Results.Count == 0 || response.Results[0].Data.Count == 0)
 				{
 					ErrorLogger.LogError(invoiceNum, $"No Invoice Exists with Invoice#: {invoiceNum}");
 					return false;
