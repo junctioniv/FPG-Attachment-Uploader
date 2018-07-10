@@ -212,5 +212,58 @@ namespace FPG_Attachment_Uploader
 
 			return true;
 		}
+
+		public static bool UploadAttachment(string path)
+		{
+			try
+			{
+				var filename = Path.GetFileName(path);
+				if (string.IsNullOrEmpty(filename))
+				{
+					return false;
+				}
+
+				var invoiceNum = filename.Split(' ')[0];
+				var attachmentsId = $"Att {invoiceNum}";
+				var attachmentsName = filename.Split('.')[0];
+
+				var bytes = File.ReadAllBytes(path);
+				if (bytes.Length == 0)
+				{
+					ErrorLogger.LogError(filename, "File Was Empty");
+					return false;
+				}
+
+				//Check to see if the Invoice Already Exists, and grab the invoiceRecordNo if it does.
+				if (!IntacctClient.InvoiceExists(invoiceNum, out var invoice)) return false;
+				var invoiceRecordNo = invoice.Element("RECORDNO")?.Value;
+
+				if (invoiceRecordNo == null)
+				{
+					return false;
+				}
+
+				if (!IntacctClient.GetInvoice(Convert.ToInt32(invoiceRecordNo), invoiceNum, out invoice)) return false;
+				var invoiceLineItem = invoice.Element("SODOCUMENTENTRIES")?.Element("sodocumententry");
+				var salesInvoiceDocumentId = invoice.Element("DOCID")?.Value;
+
+				//Upload the Attachments
+				if (!IntacctClient.UploadAttachment(attachmentsId, attachmentsName, invoiceNum, path)) return false;
+
+				//Update the Invoice to have the new Attachment
+				if (!IntacctClient.UpdateInvoice(salesInvoiceDocumentId, attachmentsId, invoiceNum, invoiceLineItem))
+					return false;
+
+				//Move the succesfully Attached Invoice to the "Attached" Directory
+				File.WriteAllBytes($"{path}\\Attached\\{filename}", bytes);
+				File.Delete(path);
+			}
+			catch (Exception e)
+			{
+				Console.WriteLine($"There was an error processing File:{path} - {e}");
+				return false;
+			}
+			return true;
+		}
 	}
 }
