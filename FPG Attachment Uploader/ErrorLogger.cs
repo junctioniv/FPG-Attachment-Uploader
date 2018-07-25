@@ -13,6 +13,11 @@ namespace FPG_Attachment_Uploader
 	{
 		private static Dictionary<string, List<string>> _errors = new Dictionary<string, List<string>>();
 
+		public static bool HasErrors()
+		{
+			return _errors.Count > 0;
+		}
+
 		public static void LogError(string key, string message)
 		{
 			if (_errors.ContainsKey(key))
@@ -23,8 +28,7 @@ namespace FPG_Attachment_Uploader
 			{
 				_errors.Add(key, new List<string> { message });
 			}
-
-			Console.WriteLine(message);
+			Console.WriteLine($"{DateTime.Now:G}	{key}: {message}");
 		}
 
 		public static void SendErrorEmail(int numInserted, int numFailed, List<Report> reports)

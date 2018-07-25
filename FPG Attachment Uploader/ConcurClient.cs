@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Configuration;
+using System.Data.SqlTypes;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -172,6 +173,41 @@ namespace FPG_Attachment_Uploader
 
 			return image;
 		}
+
+		public static ReceiptImage GetEntryReceiptImageFromMetaData(ReportEntry entry)
+		{
+			var list = new List<ReceiptImage>();
+			var json = Call($"/api/expense/expensereport/v2.0/report/{entry.ReportId}");
+
+			ReceiptImage image = null;
+
+			var expenseEntriesList = JsonConvert.DeserializeObject<JObject>(json)["ExpenseEntriesList"];
+			foreach (var expense in expenseEntriesList)
+			{
+				try
+				{
+					var entryImageId = expense["EntryImageID"]?.ToString() ?? "";
+					var id = expense["ReportEntryID"]?.ToString() ?? "";
+					var vender = expense["VendorDescription"]?.ToString() ?? "";
+					var memo = expense["BusinessPurpose"]?.ToString() ?? "";
+					var date = expense["TransactionDate"]?.ToString() ?? "";
+					var amount = expense["ApprovedAmount"]?.ToString() ?? "";
+
+					if (string.IsNullOrEmpty(entryImageId)) continue;
+					if (entry.VendorName == vender && entry.Memo == memo && entry.TransactionDate == DateTime.Parse(date) && entry.Amount == Convert.ToDouble(amount))
+					{
+						image = GetReciptImageByEntryId(id);
+						break;
+					}
+				}
+				catch(Exception ex)
+				{
+					Console.WriteLine(ex.Message);
+				}
+			}
+
+			return image;
+		}
 	}
 
 	public class Report
@@ -184,10 +220,16 @@ namespace FPG_Attachment_Uploader
 
 	public class ReportEntry
 	{
-		public string Id;
+		public string Id; //This is the Uniquie Id from Concur's API. Apparently it is a hased value that is generated at the time of calling the API and is not stored anywhere in their Analytics Reporting system... :facepalm:
+		public string Key; //This is some wierd unique value for each entry that only exists in Concur's Anaylticis Reporting and not the API
 		public ReportEntryType Type;
 		public ReceiptImage Image;
 		public string Path;
+		public string VendorName;
+		public string Memo;
+		public DateTime TransactionDate;
+		public double Amount;
+		public string ReportId; //If this seems redundant, it is...
 	}
 
 	public enum ReportEntryType

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -26,22 +27,24 @@ namespace FPG_Attachment_Uploader
 			var userName = Settings.Default.UserName;
 			var password = Settings.Default.Password;
 			var clientId = Settings.Default.ClientId;
-			var excelPath = string.Empty;
+			var intacctExcelPath = string.Empty;
+			var concurExcelPath = string.Empty;
 			var pdfPath = string.Empty;
 			var outputPath = string.Empty;
 			var count = 0;
 			var numSuccess = 0;
 			var numFail = 0;
-			IWorkbook workbook;
-			List<Report> reports = new List<Report>();
+			IWorkbook concurWorkbook;
+			var reports = new List<Report>();
+			var reportEntries = new List<ReportEntry>();
 
 			try
 			{
 				//var list = ConcurClient.GetReportIds();
 
-				while (string.IsNullOrWhiteSpace(excelPath))
+				while (string.IsNullOrWhiteSpace(intacctExcelPath))
 				{
-					Console.WriteLine("Press Enter to Select the Excel Import File:");
+					Console.WriteLine("Press Enter to Select the Intacct Excel Import File:");
 					Console.ReadLine();
 
 					using (var dialog = new CommonOpenFileDialog
@@ -56,8 +59,35 @@ namespace FPG_Attachment_Uploader
 
 						if (result == CommonFileDialogResult.Ok && !string.IsNullOrWhiteSpace(dialog.FileName))
 						{
-							excelPath = dialog.FileName;
-							Console.WriteLine($"Path Selected: {excelPath}");
+							intacctExcelPath = dialog.FileName;
+							Console.WriteLine($"Path Selected: {intacctExcelPath}");
+						}
+						else
+						{
+							Console.WriteLine("The Path you selected was not valid. Please select a valid path.");
+						}
+					}
+				}
+
+				while (string.IsNullOrWhiteSpace(concurExcelPath))
+				{
+					Console.WriteLine("Press Enter to Select the Concur Excel Import File:");
+					Console.ReadLine();
+
+					using (var dialog = new CommonOpenFileDialog
+					{
+						Title = "Select Excel Document to Process",
+						InitialDirectory = "C:\\",
+						EnsurePathExists = true,
+						Multiselect = false
+					})
+					{
+						var result = dialog.ShowDialog();
+
+						if (result == CommonFileDialogResult.Ok && !string.IsNullOrWhiteSpace(dialog.FileName))
+						{
+							concurExcelPath = dialog.FileName;
+							Console.WriteLine($"Path Selected: {concurExcelPath}");
 						}
 						else
 						{
@@ -126,48 +156,108 @@ namespace FPG_Attachment_Uploader
 					}
 				}
 
-				using (var file = new FileStream(excelPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+				IWorkbook intacctWorkbook;
+				using (var file = new FileStream(intacctExcelPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
 				{
-					var extension = Path.GetExtension(excelPath);
+					var extension = Path.GetExtension(intacctExcelPath);
 					if (extension.Contains("xlsx"))
 					{
-						workbook = new XSSFWorkbook(file);
+						intacctWorkbook = new XSSFWorkbook(file);
 					}
 					else
 					{
-						workbook = new HSSFWorkbook(file);
+						intacctWorkbook = new HSSFWorkbook(file);
 					}
 				}
 
-				var sheet = workbook.GetSheet(workbook.GetSheetName(workbook.ActiveSheetIndex));
-				var oathToken = ConcurClient.Login(userName, password, clientId);
-				Console.WriteLine("Processing Import Excel File.");
-				for (var i = 1; i <= sheet.LastRowNum; i++)
+				using (var file = new FileStream(concurExcelPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
 				{
-					var row = sheet.GetRow(i);
-					var invoiceNum = row.GetCell(0)?.StringCellValue ?? string.Empty;
-					var reportId = row.GetCell(2)?.StringCellValue ?? string.Empty;
-					var idString = row.GetCell(1)?.StringCellValue?? string.Empty;
-					var idStringTokens = idString.Split('|');
-
-					if(idStringTokens.Length <= 1) continue;
-
-					var report = reports.SingleOrDefault(q => q.ReportId == reportId) ?? new Report{ReportId = reportId, Id = invoiceNum};
-					var entryId = idStringTokens[0].Trim();
-					var entry = new ReportEntry{Id = entryId};
-					if (entry.Id.Length >= 36)
+					var extension = Path.GetExtension(intacctExcelPath);
+					if (extension.Contains("xlsx"))
 					{
-						entry.Type = ReportEntryType.Concur;
-						entry.Image = ConcurClient.GetReciptImageByEntryId(entryId);
+						concurWorkbook = new XSSFWorkbook(file);
 					}
 					else
 					{
-						entry.Type = ReportEntryType.Egencia;
-						entry.Path = $"{pdfPath}/{entry.Id}.pdf";
+						concurWorkbook = new HSSFWorkbook(file);
+					}
+				}
+
+				var sheet = concurWorkbook.GetSheet(concurWorkbook.GetSheetName(intacctWorkbook.ActiveSheetIndex));
+				Console.WriteLine("Processing Concur Excel File.");
+				for (var i = 1; i <= sheet.LastRowNum; i++)
+				{
+					var row = sheet.GetRow(i);
+					var key = row.GetCell(24)?.NumericCellValue.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
+					var reportId = row.GetCell(25)?.StringCellValue ?? string.Empty;
+					var vendor = row.GetCell(6)?.StringCellValue ?? string.Empty;
+					var memo = row.GetCell(7)?.StringCellValue ?? string.Empty;
+					var date = row.GetCell(5)?.DateCellValue ?? new DateTime();
+					var amount = row.GetCell(9)?.NumericCellValue ?? 0;
+
+					var entry = new ReportEntry
+					{
+						Key = key,
+						ReportId = reportId,
+						VendorName = vendor,
+						Memo = memo,
+						TransactionDate = date,
+						Amount = amount
+					};
+					 reportEntries.Add(entry);
+				}
+
+				sheet = intacctWorkbook.GetSheet(intacctWorkbook.GetSheetName(intacctWorkbook.ActiveSheetIndex));
+				var oathToken = ConcurClient.Login(userName, password, clientId);
+
+				Console.WriteLine("Processing Intacct Excel File.");
+				for (var i = 4; i <= sheet.LastRowNum; i++)
+				{
+					var row = sheet.GetRow(i);
+					var invoiceNum = "";
+					var key = "";
+					var report = new Report();
+					try
+					{
+						invoiceNum = row.GetCell(0)?.StringCellValue ?? string.Empty;
+						report = reports.SingleOrDefault(q => q.Id == invoiceNum) ?? new Report { Id = invoiceNum, ReportId = ""};
+
+						var keyString = row.GetCell(1)?.StringCellValue ?? string.Empty;
+						var keyTokens = keyString.Split('|');
+
+						if (keyTokens.Length <= 1) continue;
+
+						key = keyTokens[0].Trim();
+
+						var entry = new ReportEntry() { Key = key };
+						if (key.Length < 11)
+						{
+							//Find the existing ReportEntry
+							entry = reportEntries.SingleOrDefault(q => q.Key == key);
+							if (entry == null)
+							{
+								throw new Exception($"Expense Entry Key#{key} could not be found.");
+							}
+
+							report.ReportId = entry.ReportId;
+							entry.Type = ReportEntryType.Concur;
+							entry.Image = ConcurClient.GetEntryReceiptImageFromMetaData(entry);
+						}
+						else
+						{
+							entry.Type = ReportEntryType.Egencia;
+							entry.Path = $"{pdfPath}\\{entry.Key}.pdf";
+						}
+						report.Entries.Add(entry);
+					}
+					catch (Exception e)
+					{
+						report.HasError = true;
+						ErrorLogger.LogError(!string.IsNullOrEmpty(key) ? key : $"Row# {i}", e.Message + e.StackTrace);
 					}
 
-					report.Entries.Add(entry);
-					if (reports.All(q => q.ReportId != reportId))
+					//If We have not stored this Report, store it.
+					if (reports.All(q => q.Id != report.Id))
 					{
 						reports.Add(report);
 					}
@@ -175,6 +265,10 @@ namespace FPG_Attachment_Uploader
 
 				foreach (var report in reports)
 				{
+					if (report.HasError)
+					{
+						continue;
+					}
 					Console.WriteLine($"Generating PDF for Invoice#{report.Id}");
 					GenerateReportPdf(report, outputPath);
 				}
@@ -203,7 +297,7 @@ namespace FPG_Attachment_Uploader
 				}
 
 				numFail = count - numSuccess;
-				if (numFail > 0)
+				if (numFail > 0 || ErrorLogger.HasErrors())
 				{
 					ErrorLogger.SendErrorEmail(numSuccess, numFail, reports);
 				}
@@ -219,71 +313,84 @@ namespace FPG_Attachment_Uploader
 
 		private static void GenerateReportPdf(Report report, string outputDirectory)
 		{
-			var path = $"{outputDirectory}/{report.Id}.pdf";
-			using (var outputStream = new FileStream(path, FileMode.Create))
+			var path = $"{outputDirectory}\\{report.Id}.pdf";
+			try
 			{
-				using (var doc = new Document())
+				using (var outputStream = new FileStream(path, FileMode.Create, FileAccess.ReadWrite))
 				{
-					using (var merge = new PdfSmartCopy(doc, outputStream))
+					using (var doc = new Document())
 					{
-						doc.Open();
-						foreach (var entry in report.Entries)
+						using (var merge = new PdfSmartCopy(doc, outputStream))
 						{
-							try
+							doc.Open();
+							foreach (var entry in report.Entries)
 							{
-								if (entry.Type == ReportEntryType.Concur)
+								try
 								{
-									var receipt = entry.Image;
-									ConcurClient.DownloadImage(receipt);
-									switch (receipt.ContentType)
+									if (entry.Type == ReportEntryType.Concur)
 									{
-										case "pdf":
-											merge.AddDocument(new PdfReader(receipt.Data));
-											break;
-										case "image":
-										default:
-											using (var output = new MemoryStream())
-											{
-												using (var document = new Document())
-												{
-													PdfWriter.GetInstance(document, output);
-													document.Open();
+										if(entry.Image == null) { throw new Exception("No Image Found for this Entry.");}
 
-													var image = Image.GetInstance(receipt.Data);
-													image.ScaleToFit(document.PageSize);
-													document.Add(image);
-													document.NewPage();
+										var receipt = entry.Image;
+										ConcurClient.DownloadImage(receipt);
+										switch (receipt.ContentType)
+										{
+											case "pdf":
+												merge.AddDocument(new PdfReader(receipt.Data));
+												break;
+											case "image":
+											default:
+												using (var output = new MemoryStream())
+												{
+													using (var document = new Document())
+													{
+														PdfWriter.GetInstance(document, output);
+														document.Open();
+
+														var image = Image.GetInstance(receipt.Data);
+														image.ScaleToFit(document.PageSize);
+														document.Add(image);
+														document.NewPage();
+													}
+													var bytes = output.ToArray();
+													merge.AddDocument(new PdfReader(bytes));
 												}
-												var bytes = output.ToArray();
-												merge.AddDocument(new PdfReader(bytes));
-											}
-											break;
+												break;
+										}
 									}
-								}
-								else
-								{
-									var bytes = File.ReadAllBytes(entry.Path);
-									if (bytes.Length == 0)
+									else
 									{
-										ErrorLogger.LogError(entry.Path, "File Was Empty");
-										report.HasError = true;
-										break;
+										var bytes = File.ReadAllBytes(entry.Path);
+										if (bytes.Length == 0)
+										{
+											throw new Exception($"File Was Empty: {entry.Path}");
+										}
+										merge.AddDocument(new PdfReader(bytes));
 									}
-									merge.AddDocument(new PdfReader(bytes));
+
 								}
-								
+								catch (Exception e)
+								{
+									report.HasError = true;
+									ErrorLogger.LogError(entry.Key, e.Message);
+								}
 							}
-							catch (Exception e)
+
+							if (merge.CurrentPageNumber <= 1)
 							{
-								report.HasError = true;
-								Console.WriteLine(e);
-								break;
+								merge.PageEmpty = true;
+								merge.NewPage();
 							}
 						}
 					}
 				}
 			}
-
+			catch (Exception e)
+			{
+				report.HasError = true;
+				ErrorLogger.LogError(report.Id, e.Message);
+			}
+			
 			if (report.HasError)
 			{
 				//Lets get rid of our problem child
