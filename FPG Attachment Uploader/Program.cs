@@ -263,6 +263,8 @@ namespace FPG_Attachment_Uploader
 					}
 				}
 
+				Console.WriteLine("Finished Processing Excel files. Generating PDF Reports.");
+
 				foreach (var report in reports)
 				{
 					if (report.HasError)
@@ -273,6 +275,9 @@ namespace FPG_Attachment_Uploader
 					GenerateReportPdf(report, outputPath);
 				}
 				
+				Console.WriteLine("All PDFs Generated. Please press enter to upload and attach all gerneated PDFs.");
+				Console.ReadLine();
+
 				var files = Directory.GetFiles(outputPath, "*-*.pdf", SearchOption.TopDirectoryOnly);
 				Console.WriteLine($"{files.Length} Files to Process.");
 
