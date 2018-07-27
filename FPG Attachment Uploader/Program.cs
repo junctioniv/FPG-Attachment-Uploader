@@ -265,16 +265,26 @@ namespace FPG_Attachment_Uploader
 
 				Console.WriteLine("Finished Processing Excel files. Generating PDF Reports.");
 
+				var cont = true;
 				foreach (var report in reports)
 				{
 					if (report.HasError)
 					{
+						cont = false;
 						continue;
 					}
 					Console.WriteLine($"Generating PDF for Invoice#{report.Id}");
 					GenerateReportPdf(report, outputPath);
 				}
-				
+
+				if (!cont || reports.Any(q=>q.HasError))
+				{
+					ErrorLogger.SendErrorEmail(numSuccess, numFail, reports);
+					Console.WriteLine("There were errors with genreating the PDFs. Please See Error Email and Run again. Press Enter to close.");
+					Console.ReadLine();
+					return;
+				}
+
 				Console.WriteLine("All PDFs Generated. Please press enter to upload and attach all gerneated PDFs.");
 				Console.ReadLine();
 
