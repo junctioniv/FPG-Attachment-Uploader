@@ -241,7 +241,16 @@ namespace FPG_Attachment_Uploader
 
 							report.ReportId = entry.ReportId;
 							entry.Type = ReportEntryType.Concur;
-							entry.Image = ConcurClient.GetEntryReceiptImageFromMetaData(entry);
+
+							//If a file exists for this key in the pdf folder, we want to add pull from it instead of concur
+							if (File.Exists($"{pdfPath}\\{entry.Key}.pdf)"))
+							{
+								entry.Path = $"{pdfPath}\\{entry.Key}.pdf";
+							}
+							else
+							{
+								entry.Image = ConcurClient.GetEntryReceiptImageFromMetaData(entry);
+							}	
 						}
 						else
 						{
@@ -277,16 +286,17 @@ namespace FPG_Attachment_Uploader
 					GenerateReportPdf(report, outputPath);
 				}
 
-				if (!cont || reports.Any(q=>q.HasError))
+				if (!cont || reports.Any(q => q.HasError))
 				{
 					ErrorLogger.SendErrorEmail(numSuccess, numFail, reports);
-					Console.WriteLine("There were errors with genreating the PDFs. Please See Error Email and Run again. Press Enter to close.");
+					Console.WriteLine("There were errors with generating the PDFs. Please See Error Email. Press enter to continue and upload and attach all generated PDFs or Close the program to abort.");
 					Console.ReadLine();
-					return;
 				}
-
-				Console.WriteLine("All PDFs Generated. Please press enter to upload and attach all gerneated PDFs.");
-				Console.ReadLine();
+				else
+				{
+					Console.WriteLine("All PDFs Generated without errors. Please press enter to upload and attach all generated PDFs.");
+					Console.ReadLine();
+				}
 
 				var files = Directory.GetFiles(outputPath, "*-*.pdf", SearchOption.TopDirectoryOnly);
 				Console.WriteLine($"{files.Length} Files to Process.");
@@ -328,7 +338,7 @@ namespace FPG_Attachment_Uploader
 
 		private static void GenerateReportPdf(Report report, string outputDirectory)
 		{
-			var path = $"{outputDirectory}\\{report.Id}.pdf";
+			var path = $"{outputDirectory}\\{report.Id} Receipts.pdf";
 			try
 			{
 				using (var outputStream = new FileStream(path, FileMode.Create, FileAccess.ReadWrite))
@@ -342,7 +352,16 @@ namespace FPG_Attachment_Uploader
 							{
 								try
 								{
-									if (entry.Type == ReportEntryType.Concur)
+									if (!string.IsNullOrEmpty(entry.Path)) //If we have already set a path for the entry, just pull that file
+									{
+										var bytes = File.ReadAllBytes(entry.Path);
+										if (bytes.Length == 0)
+										{
+											throw new Exception($"File Was Empty: {entry.Path}");
+										}
+										merge.AddDocument(new PdfReader(bytes));
+									}
+									else if (entry.Type == ReportEntryType.Concur)//If we don't have a path and we are a concur receipt, process that image
 									{
 										if(entry.Image == null) { throw new Exception("No Image Found for this Entry.");}
 
@@ -373,14 +392,9 @@ namespace FPG_Attachment_Uploader
 												break;
 										}
 									}
-									else
+									else //If we don't have a path, and we aren't a concur document, wtf...
 									{
-										var bytes = File.ReadAllBytes(entry.Path);
-										if (bytes.Length == 0)
-										{
-											throw new Exception($"File Was Empty: {entry.Path}");
-										}
-										merge.AddDocument(new PdfReader(bytes));
+										throw new Exception($"No File for: {entry.Path}");
 									}
 
 								}
